@@ -22,6 +22,8 @@ import org.apache.hadoop.hive.serde2.typeinfo.PrimitiveTypeInfo;
 import org.apache.hadoop.hive.serde2.typeinfo.TypeInfo;
 import org.apache.hadoop.io.LongWritable;
 
+import org.apache.commons.math3.distribution.TDistribution;
+
 
 @Description(name = "t-test", value = "_FUNC_(y,x) - Run t-test between a set of number pairs")
 public class TTestGenericUDAF extends AbstractGenericUDAFResolver {
@@ -83,14 +85,12 @@ public class TTestGenericUDAF extends AbstractGenericUDAFResolver {
     }
 
     /**
-     * Evaluate the Pearson correlation coefficient using a stable one-pass
-     * algorithm, based on work by Philippe Pébay and Donald Knuth.
-     *
-     *  Incremental:
+     *  Incremental calculation of average and (unbiased) sample variance:
      *   n : &lt;count&gt;
      *   mu_n = mu_(n-1) + (x_n - mu_(n-1)) / n : &lt;xavg&gt;
      *   var_n = (n - 2) * std_(n-1)^2 + (x_n - mu_n) * (x_n - mu_(n-1)) / (n - 1): &lt;unbiased estimate of std * n&gt;
-     *  Merge:
+     *
+     *  Merge average and sample variance:
      *   mu_(A,B) = (n_A * mu_A + n_B * mu_B) / (n_A + n_B)
      *   var_(A,B) = [(n_A - 1) * std_A^2 + (n_B - 1) * std_B^2
      *     + (mx_A - mx_B)^2 *n_A * n_B/ (n_A + n_B)] / (n_A + n_B - 1)
@@ -201,7 +201,7 @@ public class TTestGenericUDAF extends AbstractGenericUDAFResolver {
             double yvar; // variance of y elements
             @Override
             public int estimate() { return JavaDataModel.PRIMITIVES2 * 6; }
-        };
+        }
 
         @Override
         public AggregationBuffer getNewAggregationBuffer() throws HiveException {
@@ -332,10 +332,11 @@ public class TTestGenericUDAF extends AbstractGenericUDAFResolver {
             } else {
                 DoubleWritable result = getResult();
                 double s = myagg.xvar / myagg.xcount + myagg.yvar / myagg.ycount;
-                double t = (myagg.xavg - myagg.yavg) / java.lang.Math.sqrt(s);
+                double t = java.lang.Math.abs((myagg.xavg - myagg.yavg) / java.lang.Math.sqrt(s));
                 double df = s * s / ((myagg.xvar / myagg.xcount) * (myagg.xvar / myagg.xcount) / (myagg.xcount - 1)
-                        + (myagg.xvar / myagg.xcount) * (myagg.xvar / myagg.xcount) / (myagg.xcount - 1));
-                result.set(t);
+                        + (myagg.yvar / myagg.ycount) * (myagg.yvar / myagg.ycount) / (myagg.ycount - 1));
+
+                result.set(2 * (new TDistribution(df)).cumulativeProbability(-t));
                 return result;
             }
         }
