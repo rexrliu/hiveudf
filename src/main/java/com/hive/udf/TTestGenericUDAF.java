@@ -88,16 +88,12 @@ public class TTestGenericUDAF extends AbstractGenericUDAFResolver {
      *
      *  Incremental:
      *   n : &lt;count&gt;
-     *   mx_n = mx_(n-1) + [x_n - mx_(n-1)]/n : &lt;xavg&gt;
-     *   my_n = my_(n-1) + [y_n - my_(n-1)]/n : &lt;yavg&gt;
-     *   c_n = c_(n-1) + (x_n - mx_(n-1))*(y_n - my_n) : &lt;covariance * n&gt;
-     *   vx_n = vx_(n-1) + (x_n - mx_n)(x_n - mx_(n-1)): &lt;variance * n&gt;
-     *   vy_n = vy_(n-1) + (y_n - my_n)(y_n - my_(n-1)): &lt;variance * n&gt;
-     *
+     *   mu_n = mu_(n-1) + (x_n - mu_(n-1)) / n : &lt;xavg&gt;
+     *   var_n = (n - 2) * std_(n-1)^2 + (x_n - mu_n) * (x_n - mu_(n-1)) / (n - 1): &lt;unbiased estimate of std * n&gt;
      *  Merge:
-     *   c_X = c_A + c_B + (mx_A - mx_B)*(my_A - my_B)*n_A*n_B/n_X
-     *   vx_(A,B) = vx_A + vx_B + (mx_A - mx_B)*(mx_A - mx_B)*n_A*n_B/(n_A+n_B)
-     *   vy_(A,B) = vy_A + vy_B + (my_A - my_B)*(my_A - my_B)*n_A*n_B/(n_A+n_B)
+     *   mu_(A,B) = (n_A * mu_A + n_B * mu_B) / (n_A + n_B)
+     *   var_(A,B) = [(n_A - 1) * std_A^2 + (n_B - 1) * std_B^2
+     *     + (mx_A - mx_B)^2 *n_A * n_B/ (n_A + n_B)] / (n_A + n_B - 1)
      *
      */
     public static class TTestGenericEvaluator extends GenericUDAFEvaluator {
@@ -108,18 +104,19 @@ public class TTestGenericUDAF extends AbstractGenericUDAFResolver {
 
         // For PARTIAL2 and FINAL
         private transient StructObjectInspector soi;
-        private transient StructField countField;
+        private transient StructField xcountField;
+        private transient StructField ycountField;
         private transient StructField xavgField;
         private transient StructField yavgField;
         private transient StructField xvarField;
         private transient StructField yvarField;
-        private transient StructField covarField;
-        private LongObjectInspector countFieldOI;
+
+        private LongObjectInspector xcountFieldOI;
+        private LongObjectInspector ycountFieldOI;
         private DoubleObjectInspector xavgFieldOI;
         private DoubleObjectInspector yavgFieldOI;
         private DoubleObjectInspector xvarFieldOI;
         private DoubleObjectInspector yvarFieldOI;
-        private DoubleObjectInspector covarFieldOI;
 
         // For PARTIAL1 and PARTIAL2
         private Object[] partialResult;
@@ -140,25 +137,19 @@ public class TTestGenericUDAF extends AbstractGenericUDAFResolver {
                 assert (parameters.length == 1);
                 soi = (StructObjectInspector) parameters[0];
 
-                countField = soi.getStructFieldRef("count");
+                xcountField = soi.getStructFieldRef("xcount");
+                ycountField = soi.getStructFieldRef("ycount");
                 xavgField = soi.getStructFieldRef("xavg");
                 yavgField = soi.getStructFieldRef("yavg");
                 xvarField = soi.getStructFieldRef("xvar");
                 yvarField = soi.getStructFieldRef("yvar");
-                covarField = soi.getStructFieldRef("covar");
 
-                countFieldOI =
-                        (LongObjectInspector) countField.getFieldObjectInspector();
-                xavgFieldOI =
-                        (DoubleObjectInspector) xavgField.getFieldObjectInspector();
-                yavgFieldOI =
-                        (DoubleObjectInspector) yavgField.getFieldObjectInspector();
-                xvarFieldOI =
-                        (DoubleObjectInspector) xvarField.getFieldObjectInspector();
-                yvarFieldOI =
-                        (DoubleObjectInspector) yvarField.getFieldObjectInspector();
-                covarFieldOI =
-                        (DoubleObjectInspector) covarField.getFieldObjectInspector();
+                xcountFieldOI = (LongObjectInspector) xcountField.getFieldObjectInspector();
+                ycountFieldOI = (LongObjectInspector) ycountField.getFieldObjectInspector();
+                xavgFieldOI = (DoubleObjectInspector) xavgField.getFieldObjectInspector();
+                yavgFieldOI = (DoubleObjectInspector) yavgField.getFieldObjectInspector();
+                xvarFieldOI = (DoubleObjectInspector) xvarField.getFieldObjectInspector();
+                yvarFieldOI = (DoubleObjectInspector) yvarField.getFieldObjectInspector();
             }
 
             // init output
@@ -170,23 +161,23 @@ public class TTestGenericUDAF extends AbstractGenericUDAFResolver {
                 ArrayList<ObjectInspector> foi = new ArrayList<ObjectInspector>();
 
                 foi.add(PrimitiveObjectInspectorFactory.writableLongObjectInspector);
-                foi.add(PrimitiveObjectInspectorFactory.writableDoubleObjectInspector);
+                foi.add(PrimitiveObjectInspectorFactory.writableLongObjectInspector);
                 foi.add(PrimitiveObjectInspectorFactory.writableDoubleObjectInspector);
                 foi.add(PrimitiveObjectInspectorFactory.writableDoubleObjectInspector);
                 foi.add(PrimitiveObjectInspectorFactory.writableDoubleObjectInspector);
                 foi.add(PrimitiveObjectInspectorFactory.writableDoubleObjectInspector);
 
                 ArrayList<String> fname = new ArrayList<String>();
-                fname.add("count");
+                fname.add("xcount");
+                fname.add("ycount");
                 fname.add("xavg");
                 fname.add("yavg");
                 fname.add("xvar");
                 fname.add("yvar");
-                fname.add("covar");
 
                 partialResult = new Object[6];
                 partialResult[0] = new LongWritable(0);
-                partialResult[1] = new DoubleWritable(0);
+                partialResult[1] = new LongWritable(0);
                 partialResult[2] = new DoubleWritable(0);
                 partialResult[3] = new DoubleWritable(0);
                 partialResult[4] = new DoubleWritable(0);
@@ -202,12 +193,12 @@ public class TTestGenericUDAF extends AbstractGenericUDAFResolver {
 
         @AggregationType(estimable = true)
         static class StdAgg extends AbstractAggregationBuffer {
-            long count; // number n of elements
+            long xcount; // number of x elements
+            long ycount; // number of y elements
             double xavg; // average of x elements
             double yavg; // average of y elements
-            double xvar; // n times the variance of x elements
-            double yvar; // n times the variance of y elements
-            double covar; // n times the covariance
+            double xvar; // variance of x elements
+            double yvar; // variance of y elements
             @Override
             public int estimate() { return JavaDataModel.PRIMITIVES2 * 6; }
         };
@@ -222,12 +213,12 @@ public class TTestGenericUDAF extends AbstractGenericUDAFResolver {
         @Override
         public void reset(AggregationBuffer agg) throws HiveException {
             StdAgg myagg = (StdAgg) agg;
-            myagg.count = 0;
+            myagg.xcount = 0;
+            myagg.ycount = 0;
             myagg.xavg = 0;
             myagg.yavg = 0;
             myagg.xvar = 0;
             myagg.yvar = 0;
-            myagg.covar = 0;
         }
 
         @Override
@@ -235,19 +226,27 @@ public class TTestGenericUDAF extends AbstractGenericUDAFResolver {
             assert (parameters.length == 2);
             Object py = parameters[0];
             Object px = parameters[1];
-            if (px != null && py != null) {
-                StdAgg myagg = (StdAgg) agg;
-                double vx = PrimitiveObjectInspectorUtils.getDouble(px, xInputOI);
-                double vy = PrimitiveObjectInspectorUtils.getDouble(py, yInputOI);
-                double deltaX = vx - myagg.xavg;
-                double deltaY = vy - myagg.yavg;
-                myagg.count++;
-                myagg.xavg += deltaX / myagg.count;
-                myagg.yavg += deltaY / myagg.count;
-                if (myagg.count > 1) {
-                    myagg.covar += deltaX * (vy - myagg.yavg);
-                    myagg.xvar += deltaX * (vx - myagg.xavg);
-                    myagg.yvar += deltaY * (vy - myagg.yavg);
+
+            StdAgg myagg = (StdAgg) agg;
+            if (px != null) {
+                double v = PrimitiveObjectInspectorUtils.getDouble(px, xInputOI);
+                myagg.xcount++;
+                double delta = v - myagg.xavg;
+                myagg.xavg += delta / myagg.xcount;
+                if (myagg.xcount > 1) {
+                    myagg.xvar = myagg.xvar * (myagg.xcount - 2) / (myagg.xcount - 1)
+                            + (v - myagg.xavg) * delta / (myagg.xcount - 1);
+                }
+            }
+
+            if (py != null) {
+                double v = PrimitiveObjectInspectorUtils.getDouble(py, yInputOI);
+                myagg.ycount++;
+                double delta = v - myagg.yavg;
+                myagg.yavg += delta / myagg.ycount;
+                if (myagg.ycount > 1) {
+                    myagg.yvar = myagg.yvar * (myagg.ycount - 2) / (myagg.ycount - 1)
+                            + (v - myagg.yavg) * delta / (myagg.ycount - 1);
                 }
             }
         }
@@ -255,12 +254,12 @@ public class TTestGenericUDAF extends AbstractGenericUDAFResolver {
         @Override
         public Object terminatePartial(AggregationBuffer agg) throws HiveException {
             StdAgg myagg = (StdAgg) agg;
-            ((LongWritable) partialResult[0]).set(myagg.count);
-            ((DoubleWritable) partialResult[1]).set(myagg.xavg);
-            ((DoubleWritable) partialResult[2]).set(myagg.yavg);
-            ((DoubleWritable) partialResult[3]).set(myagg.xvar);
-            ((DoubleWritable) partialResult[4]).set(myagg.yvar);
-            ((DoubleWritable) partialResult[5]).set(myagg.covar);
+            ((LongWritable) partialResult[0]).set(myagg.xcount);
+            ((LongWritable) partialResult[1]).set(myagg.ycount);
+            ((DoubleWritable) partialResult[2]).set(myagg.xavg);
+            ((DoubleWritable) partialResult[3]).set(myagg.yavg);
+            ((DoubleWritable) partialResult[4]).set(myagg.xvar);
+            ((DoubleWritable) partialResult[5]).set(myagg.yvar);
             return partialResult;
         }
 
@@ -269,43 +268,57 @@ public class TTestGenericUDAF extends AbstractGenericUDAFResolver {
             if (partial != null) {
                 StdAgg myagg = (StdAgg) agg;
 
-                Object partialCount = soi.getStructFieldData(partial, countField);
+                Object partialXCount = soi.getStructFieldData(partial, xcountField);
+                Object partialYCount = soi.getStructFieldData(partial, ycountField);
                 Object partialXAvg = soi.getStructFieldData(partial, xavgField);
                 Object partialYAvg = soi.getStructFieldData(partial, yavgField);
                 Object partialXVar = soi.getStructFieldData(partial, xvarField);
                 Object partialYVar = soi.getStructFieldData(partial, yvarField);
-                Object partialCovar = soi.getStructFieldData(partial, covarField);
 
-                long nA = myagg.count;
-                long nB = countFieldOI.get(partialCount);
+                long nA = myagg.xcount;
+                long nB = xcountFieldOI.get(partialXCount);
 
                 if (nA == 0) {
                     // Just copy the information since there is nothing so far
-                    myagg.count = countFieldOI.get(partialCount);
+                    myagg.xcount = xcountFieldOI.get(partialXCount);
                     myagg.xavg = xavgFieldOI.get(partialXAvg);
-                    myagg.yavg = yavgFieldOI.get(partialYAvg);
                     myagg.xvar = xvarFieldOI.get(partialXVar);
-                    myagg.yvar = yvarFieldOI.get(partialYVar);
-                    myagg.covar = covarFieldOI.get(partialCovar);
                 }
 
                 if (nA != 0 && nB != 0) {
                     // Merge the two partials
                     double xavgA = myagg.xavg;
-                    double yavgA = myagg.yavg;
+                    double xvarA = myagg.xvar;
                     double xavgB = xavgFieldOI.get(partialXAvg);
-                    double yavgB = yavgFieldOI.get(partialYAvg);
                     double xvarB = xvarFieldOI.get(partialXVar);
-                    double yvarB = yvarFieldOI.get(partialYVar);
-                    double covarB = covarFieldOI.get(partialCovar);
 
-                    myagg.count += nB;
-                    myagg.xavg = (xavgA * nA + xavgB * nB) / myagg.count;
-                    myagg.yavg = (yavgA * nA + yavgB * nB) / myagg.count;
-                    myagg.xvar += xvarB + (xavgA - xavgB) * (xavgA - xavgB) * nA * nB / myagg.count;
-                    myagg.yvar += yvarB + (yavgA - yavgB) * (yavgA - yavgB) * nA * nB / myagg.count;
-                    myagg.covar +=
-                            covarB + (xavgA - xavgB) * (yavgA - yavgB) * ((double) (nA * nB) / myagg.count);
+                    myagg.xcount += nB;
+                    myagg.xavg = (xavgA * nA + xavgB * nB) / myagg.xcount;
+                    myagg.xvar = xvarA * (nA - 1) / (myagg.xcount -1) + xvarB * (nB - 1) / (myagg.xcount -1)
+                            + (xavgA - xavgB) * (xavgA - xavgB) * nA * nB / (nA + nB) / (myagg.xcount -1);
+                }
+
+                nA = myagg.ycount;
+                nB = ycountFieldOI.get(partialYCount);
+
+                if (nA == 0) {
+                    // Just copy the information since there is nothing so far
+                    myagg.ycount = xcountFieldOI.get(partialYCount);
+                    myagg.yavg = xavgFieldOI.get(partialYAvg);
+                    myagg.yvar = xvarFieldOI.get(partialYVar);
+                }
+
+                if (nA != 0 && nB != 0) {
+                    // Merge the two partials
+                    double yavgA = myagg.yavg;
+                    double yvarA = myagg.yvar;
+                    double yavgB = yavgFieldOI.get(partialYAvg);
+                    double yvarB = yvarFieldOI.get(partialYVar);
+
+                    myagg.ycount += nB;
+                    myagg.yavg = (yavgA * nA + yavgB * nB) / myagg.ycount;
+                    myagg.yvar = yvarA * (nA - 1) / (myagg.ycount -1) + yvarB * (nB - 1) / (myagg.ycount -1)
+                            + (yavgA - yavgB) * (yavgA - yavgB) * nA * nB / (nA + nB) / (myagg.ycount -1);
                 }
             }
         }
@@ -314,15 +327,15 @@ public class TTestGenericUDAF extends AbstractGenericUDAFResolver {
         public Object terminate(AggregationBuffer agg) throws HiveException {
             StdAgg myagg = (StdAgg) agg;
 
-            if (myagg.count == 0 || myagg.xvar == 0.0d || myagg.yvar == 0.0d) {
+            if (myagg.xcount == 0 || myagg.ycount == 0 || myagg.xvar == 0.0d || myagg.yvar == 0.0d) {
                 return null;
             } else {
                 DoubleWritable result = getResult();
-                result.set(
-                        myagg.covar
-                                / java.lang.Math.sqrt(myagg.yvar)
-                                / java.lang.Math.sqrt(myagg.xvar)
-                );
+                double s = myagg.xvar / myagg.xcount + myagg.yvar / myagg.ycount;
+                double t = (myagg.xavg - myagg.yavg) / java.lang.Math.sqrt(s);
+                double df = s * s / ((myagg.xvar / myagg.xcount) * (myagg.xvar / myagg.xcount) / (myagg.xcount - 1)
+                        + (myagg.xvar / myagg.xcount) * (myagg.xvar / myagg.xcount) / (myagg.xcount - 1));
+                result.set(t);
                 return result;
             }
         }
@@ -335,5 +348,4 @@ public class TTestGenericUDAF extends AbstractGenericUDAFResolver {
             return result;
         }
     }
-
 }
