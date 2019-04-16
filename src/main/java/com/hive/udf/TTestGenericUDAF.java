@@ -122,7 +122,7 @@ public class TTestGenericUDAF extends AbstractGenericUDAFResolver {
         private Object[] partialResult;
 
         // For FINAL and COMPLETE
-        private DoubleWritable result;
+        private Object[] result;
 
         @Override
         public ObjectInspector init(Mode m, ObjectInspector[] parameters) throws HiveException {
@@ -186,8 +186,19 @@ public class TTestGenericUDAF extends AbstractGenericUDAFResolver {
                 return ObjectInspectorFactory.getStandardStructObjectInspector(fname, foi);
 
             } else {
-                setResult(new DoubleWritable(0));
-                return PrimitiveObjectInspectorFactory.writableDoubleObjectInspector;
+                ArrayList<ObjectInspector> foi = new ArrayList<ObjectInspector>();
+                foi.add(PrimitiveObjectInspectorFactory.writableDoubleObjectInspector);
+                foi.add(PrimitiveObjectInspectorFactory.writableDoubleObjectInspector);
+
+                ArrayList<String> fname = new ArrayList<String>();
+                fname.add("statistic");
+                fname.add("pvalue");
+
+                result = new Object[2];
+                result[0] = new DoubleWritable(0);
+                result[1] = new DoubleWritable(0);
+
+                return ObjectInspectorFactory.getStandardStructObjectInspector(fname, foi);
             }
         }
 
@@ -330,22 +341,24 @@ public class TTestGenericUDAF extends AbstractGenericUDAFResolver {
             if (myagg.xcount == 0 || myagg.ycount == 0 || myagg.xvar == 0.0d || myagg.yvar == 0.0d) {
                 return null;
             } else {
-                DoubleWritable result = getResult();
                 double s = myagg.xvar / myagg.xcount + myagg.yvar / myagg.ycount;
                 double t = java.lang.Math.abs((myagg.xavg - myagg.yavg) / java.lang.Math.sqrt(s));
                 double df = s * s / ((myagg.xvar / myagg.xcount) * (myagg.xvar / myagg.xcount) / (myagg.xcount - 1)
                         + (myagg.yvar / myagg.ycount) * (myagg.yvar / myagg.ycount) / (myagg.ycount - 1));
 
-                result.set(2 * (new TDistribution(df)).cumulativeProbability(-t));
+                result = new Object[2];
+                result[0] = new DoubleWritable(t);
+                result[1] = new DoubleWritable(2 * (new TDistribution(df)).cumulativeProbability(-t));
+
                 return result;
             }
         }
 
-        public void setResult(DoubleWritable result) {
+        public void setResult(Object[] result) {
             this.result = result;
         }
 
-        public DoubleWritable getResult() {
+        public Object[] getResult() {
             return result;
         }
     }
