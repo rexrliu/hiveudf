@@ -93,7 +93,7 @@ public class TTestGenericUDAF extends AbstractGenericUDAFResolver {
      *  Merge average and sample variance:
      *   mu_(A,B) = (n_A * mu_A + n_B * mu_B) / (n_A + n_B)
      *   var_(A,B) = [(n_A - 1) * std_A^2 + (n_B - 1) * std_B^2
-     *     + (mx_A - mx_B)^2 *n_A * n_B/ (n_A + n_B)] / (n_A + n_B - 1)
+     *     + (mx_A - mx_B)^2 *n_A * n_B / (n_A + n_B)] / (n_A + n_B - 1)
      *
      */
     public static class TTestGenericEvaluator extends GenericUDAFEvaluator {
@@ -245,7 +245,7 @@ public class TTestGenericUDAF extends AbstractGenericUDAFResolver {
                 double delta = v - myagg.xavg;
                 myagg.xavg += delta / myagg.xcount;
                 if (myagg.xcount > 1) {
-                    myagg.xvar = myagg.xvar * (myagg.xcount - 2) / (myagg.xcount - 1)
+                    myagg.xvar = myagg.xvar * ((myagg.xcount - 2) * 1.0d / (myagg.xcount - 1))
                             + (v - myagg.xavg) * delta / (myagg.xcount - 1);
                 }
             }
@@ -256,7 +256,7 @@ public class TTestGenericUDAF extends AbstractGenericUDAFResolver {
                 double delta = v - myagg.yavg;
                 myagg.yavg += delta / myagg.ycount;
                 if (myagg.ycount > 1) {
-                    myagg.yvar = myagg.yvar * (myagg.ycount - 2) / (myagg.ycount - 1)
+                    myagg.yvar = myagg.yvar * ((myagg.ycount - 2) * 1.0d / (myagg.ycount - 1))
                             + (v - myagg.yavg) * delta / (myagg.ycount - 1);
                 }
             }
@@ -304,9 +304,11 @@ public class TTestGenericUDAF extends AbstractGenericUDAFResolver {
                     double xvarB = xvarFieldOI.get(partialXVar);
 
                     myagg.xcount += nB;
-                    myagg.xavg = (xavgA * nA + xavgB * nB) / myagg.xcount;
-                    myagg.xvar = xvarA * (nA - 1) / (myagg.xcount -1) + xvarB * (nB - 1) / (myagg.xcount -1)
-                            + (xavgA - xavgB) * (xavgA - xavgB) * nA * nB / (nA + nB) / (myagg.xcount -1);
+                    myagg.xavg = xavgA * (nA * 1.0d / myagg.xcount) + xavgB * (nB * 1.0d / myagg.xcount);
+                    myagg.xvar = xvarA * ((nA - 1) * 1.0d / (myagg.xcount - 1))
+                            + xvarB * ((nB - 1) * 1.0d / (myagg.xcount - 1))
+                            + (xavgA - xavgB) * (xavgA - xavgB)
+                            * (nA * 1.0d / (nA + nB)) * (nB * 1.0d / (myagg.xcount - 1));
                 }
 
                 nA = myagg.ycount;
@@ -327,9 +329,11 @@ public class TTestGenericUDAF extends AbstractGenericUDAFResolver {
                     double yvarB = yvarFieldOI.get(partialYVar);
 
                     myagg.ycount += nB;
-                    myagg.yavg = (yavgA * nA + yavgB * nB) / myagg.ycount;
-                    myagg.yvar = yvarA * (nA - 1) / (myagg.ycount -1) + yvarB * (nB - 1) / (myagg.ycount -1)
-                            + (yavgA - yavgB) * (yavgA - yavgB) * nA * nB / (nA + nB) / (myagg.ycount -1);
+                    myagg.yavg = yavgA * (nA * 1.0d / myagg.ycount) + yavgB * (nB * 1.0d / myagg.ycount);
+                    myagg.yvar = yvarA * ((nA - 1) * 1.0d / (myagg.ycount - 1))
+                            + yvarB * ((nB - 1) * 1.0d / (myagg.ycount - 1))
+                            + (yavgA - yavgB) * (yavgA - yavgB)
+                            * (nA * 1.0d / (nA + nB)) * (nB * 1.0d / (myagg.ycount - 1));
                 }
             }
         }
