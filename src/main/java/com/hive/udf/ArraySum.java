@@ -10,23 +10,24 @@ import org.apache.hadoop.hive.serde2.objectinspector.ListObjectInspector;
 import org.apache.hadoop.hive.serde2.objectinspector.ObjectInspector;
 import org.apache.hadoop.hive.serde2.objectinspector.ObjectInspectorUtils;
 import org.apache.hadoop.hive.serde2.objectinspector.primitive.PrimitiveObjectInspectorFactory;
+import org.apache.hadoop.hive.serde2.io.DoubleWritable;
 
-@Description(name = "array_max"
-        , value = "_FUNC_(array) - returns the maximum value of input array."
+@Description(name = "array_sum"
+        , value = "_FUNC_(array) - returns the sum of input array."
         , extended = "Example:\n > select _FUNC_(array) from src;")
-public class ArrayMax extends GenericUDF {
+public class ArraySum extends GenericUDF {
     private static final int ARG_COUNT = 1; // Number of arguments to this UDF
     private transient ListObjectInspector arrayOI;
     private transient ObjectInspector arrayElementOI;
 
-    public ArrayMax() {
+    public ArraySum() {
     }
 
     @Override
     public ObjectInspector initialize(ObjectInspector[] arguments) throws UDFArgumentException {
         if (arguments.length != ARG_COUNT) {  // Check if only one argument was passed
             throw new UDFArgumentLengthException(
-                    "The function array_max(array) takes exactly " + ARG_COUNT + " arguments.");
+                    "The function array_sum(array) takes exactly " + ARG_COUNT + " arguments.");
         }
 
         if ("void".equals(arguments[0].getTypeName())) {  // check if input is null
@@ -36,7 +37,7 @@ public class ArrayMax extends GenericUDF {
         if (!arguments[0].getCategory().equals(ObjectInspector.Category.LIST)) { // Check if the argument is of category LIST
             throw new UDFArgumentTypeException(0,
                     "\"" + org.apache.hadoop.hive.serde.serdeConstants.LIST_TYPE_NAME + "\" "
-                            + "expected by function array_max, but "
+                            + "expected by function array_sum, but "
                             + "\"" + arguments[0].getTypeName() + "\" "
                             + "is found");
         }
@@ -52,7 +53,7 @@ public class ArrayMax extends GenericUDF {
                     + " types");
         }
 
-        return arrayElementOI;
+        return PrimitiveObjectInspectorFactory.writableDoubleObjectInspector;
     }
 
     @Override
@@ -67,20 +68,26 @@ public class ArrayMax extends GenericUDF {
             return null;
         }
 
-        Object max = arrayOI.getListElement(array, 0);
+        double sum = 0;
         for (int i = 0; i < arrayLength; i++) {
             Object v = arrayOI.getListElement(array, i);
-            if (ObjectInspectorUtils.compare(max, this.arrayElementOI,
-                    v, this.arrayElementOI) < 0 && v != null)
-                max = v;
+            if (v != null) {
+                try {
+                    sum += Double.parseDouble(v.toString());
+                } catch (NumberFormatException formatExc) {
+                    throw new UDFArgumentTypeException(0,
+                            "Only numeric type arguments are accepted but "
+                                    + arrayElementOI.getTypeName() + " was passed as parameter 1.");
+                }
+            }
         }
 
-        return max;
+        return new DoubleWritable(sum);
     }
 
     @Override
     public String getDisplayString(String[] strings) {
         assert (strings.length == ARG_COUNT);
-        return "array_max(" + strings[0] + ")";
+        return "array_sum(" + strings[0] + ")";
     }
 }
