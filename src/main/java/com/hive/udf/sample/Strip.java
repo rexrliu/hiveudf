@@ -1,4 +1,4 @@
-package com.hive.udf;
+package com.hive.udf.sample;
 
 import org.apache.commons.lang.StringUtils;
 import org.apache.hadoop.hive.ql.exec.UDF;

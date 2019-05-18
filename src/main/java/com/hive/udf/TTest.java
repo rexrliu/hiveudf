@@ -26,7 +26,7 @@ import org.apache.commons.math3.distribution.TDistribution;
 
 
 @Description(name = "t-test", value = "_FUNC_(y,x) - Run t-test between a set of number pairs")
-public class TTestGenericUDAF extends AbstractGenericUDAFResolver {
+public class TTest extends AbstractGenericUDAFResolver {
 
     @Override
     public GenericUDAFEvaluator getEvaluator(TypeInfo[] parameters) throws SemanticException {
@@ -245,8 +245,8 @@ public class TTestGenericUDAF extends AbstractGenericUDAFResolver {
                 double delta = v - myagg.xavg;
                 myagg.xavg += delta / myagg.xcount;
                 if (myagg.xcount > 1) {
-                    myagg.xvar = myagg.xvar * ((myagg.xcount - 2) * 1.0d / (myagg.xcount - 1))
-                            + (v - myagg.xavg) * delta / (myagg.xcount - 1);
+                    myagg.xvar = myagg.xvar * ((myagg.xcount - 2.0d) / (myagg.xcount - 1.0d))
+                            + (v - myagg.xavg) * delta / (myagg.xcount - 1.0d);
                 }
             }
 
@@ -256,8 +256,8 @@ public class TTestGenericUDAF extends AbstractGenericUDAFResolver {
                 double delta = v - myagg.yavg;
                 myagg.yavg += delta / myagg.ycount;
                 if (myagg.ycount > 1) {
-                    myagg.yvar = myagg.yvar * ((myagg.ycount - 2) * 1.0d / (myagg.ycount - 1))
-                            + (v - myagg.yavg) * delta / (myagg.ycount - 1);
+                    myagg.yvar = myagg.yvar * ((myagg.ycount - 2.0d) / (myagg.ycount - 1.0d))
+                            + (v - myagg.yavg) * delta / (myagg.ycount - 1.0d);
                 }
             }
         }
@@ -304,11 +304,12 @@ public class TTestGenericUDAF extends AbstractGenericUDAFResolver {
                     double xvarB = xvarFieldOI.get(partialXVar);
 
                     myagg.xcount += nB;
-                    myagg.xavg = xavgA * (nA * 1.0d / myagg.xcount) + xavgB * (nB * 1.0d / myagg.xcount);
-                    myagg.xvar = xvarA * ((nA - 1) * 1.0d / (myagg.xcount - 1))
-                            + xvarB * ((nB - 1) * 1.0d / (myagg.xcount - 1))
+                    myagg.xavg = xavgA * (nA / (double) myagg.xcount)
+                            + xavgB * (nB / (double) myagg.xcount);
+                    myagg.xvar = xvarA * ((nA - 1.0d) / (myagg.xcount - 1.0d))
+                            + xvarB * ((nB - 1.0d) / (myagg.xcount - 1.0d))
                             + (xavgA - xavgB) * (xavgA - xavgB)
-                            * (nA * 1.0d / (nA + nB)) * (nB * 1.0d / (myagg.xcount - 1));
+                            * (nA / (double) (nA + nB)) * (nB / (myagg.xcount - 1.0d));
                 }
 
                 nA = myagg.ycount;
@@ -329,11 +330,12 @@ public class TTestGenericUDAF extends AbstractGenericUDAFResolver {
                     double yvarB = yvarFieldOI.get(partialYVar);
 
                     myagg.ycount += nB;
-                    myagg.yavg = yavgA * (nA * 1.0d / myagg.ycount) + yavgB * (nB * 1.0d / myagg.ycount);
-                    myagg.yvar = yvarA * ((nA - 1) * 1.0d / (myagg.ycount - 1))
-                            + yvarB * ((nB - 1) * 1.0d / (myagg.ycount - 1))
+                    myagg.yavg = yavgA * (nA / (double) myagg.ycount)
+                            + yavgB * (nB / (double) myagg.ycount);
+                    myagg.yvar = yvarA * ((nA - 1.0d) / (myagg.ycount - 1.0d))
+                            + yvarB * ((nB - 1.0d) / (myagg.ycount - 1.0d))
                             + (yavgA - yavgB) * (yavgA - yavgB)
-                            * (nA * 1.0d / (nA + nB)) * (nB * 1.0d / (myagg.ycount - 1));
+                            * (nA / (double) (nA + nB)) * (nB  / (myagg.ycount - 1.0d));
                 }
             }
         }
@@ -347,8 +349,9 @@ public class TTestGenericUDAF extends AbstractGenericUDAFResolver {
             } else {
                 double s = myagg.xvar / myagg.xcount + myagg.yvar / myagg.ycount;
                 double t = java.lang.Math.abs((myagg.xavg - myagg.yavg) / java.lang.Math.sqrt(s));
-                double df = s * s / ((myagg.xvar / myagg.xcount) * (myagg.xvar / myagg.xcount) / (myagg.xcount - 1)
-                        + (myagg.yvar / myagg.ycount) * (myagg.yvar / myagg.ycount) / (myagg.ycount - 1));
+                double df = s * s / ((myagg.xvar / myagg.xcount)
+                        * (myagg.xvar / myagg.xcount) / (myagg.xcount - 1.0d)
+                        + (myagg.yvar / myagg.ycount) * (myagg.yvar / myagg.ycount) / (myagg.ycount - 1.0d));
 
                 result = new Object[2];
                 result[0] = new DoubleWritable(t);

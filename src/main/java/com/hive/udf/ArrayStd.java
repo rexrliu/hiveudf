@@ -13,21 +13,21 @@ import org.apache.hadoop.hive.serde2.objectinspector.ObjectInspectorUtils;
 import org.apache.hadoop.hive.serde2.objectinspector.primitive.PrimitiveObjectInspectorFactory;
 
 @Description(name = "array_avg"
-        , value = "_FUNC_(array) - returns the average of input array."
+        , value = "_FUNC_(array) - returns the std of input array."
         , extended = "Example:\n > select _FUNC_(array) from src;")
-public class ArrayAvg extends GenericUDF {
+public class ArrayStd extends GenericUDF {
     private static final int ARG_COUNT = 1; // Number of arguments to this UDF
     private transient ListObjectInspector arrayOI;
     private transient ObjectInspector arrayElementOI;
 
-    public ArrayAvg() {
+    public ArrayStd() {
     }
 
     @Override
     public ObjectInspector initialize(ObjectInspector[] arguments) throws UDFArgumentException {
         if (arguments.length != ARG_COUNT) {  // Check if only one argument was passed
             throw new UDFArgumentLengthException(
-                    "The function array_avg(array) takes exactly " + ARG_COUNT + " arguments.");
+                    "The function array_std(array) takes exactly " + ARG_COUNT + " arguments.");
         }
 
         if ("void".equals(arguments[0].getTypeName())) {  // check if input is null
@@ -37,7 +37,7 @@ public class ArrayAvg extends GenericUDF {
         if (!arguments[0].getCategory().equals(ObjectInspector.Category.LIST)) { // Check if the argument is of category LIST
             throw new UDFArgumentTypeException(0,
                     "\"" + org.apache.hadoop.hive.serde.serdeConstants.LIST_TYPE_NAME + "\" "
-                            + "expected by function array_avg, but "
+                            + "expected by function array_std, but "
                             + "\"" + arguments[0].getTypeName() + "\" "
                             + "is found");
         }
@@ -47,7 +47,7 @@ public class ArrayAvg extends GenericUDF {
 
         // Check if the comparison is supported for this type
         if (!ObjectInspectorUtils.compareSupported(arrayElementOI)) {
-            throw new UDFArgumentException("The function array_avg"
+            throw new UDFArgumentException("The function array_std"
                     + " does not support comparison for "
                     + "\"" + arrayElementOI.getTypeName() + "\""
                     + " types");
@@ -69,13 +69,17 @@ public class ArrayAvg extends GenericUDF {
         }
 
         double sum = 0;
+        double ssm = 0;
+        double t = 0;
         int n = 0;
         for (int i = 0; i < arrayLength; i++) {
             Object v = arrayOI.getListElement(array, i);
             if (v != null) {
                 n++;
                 try {
-                    sum += Double.parseDouble(v.toString());
+                    t = Double.parseDouble(v.toString());
+                    sum += t;
+                    ssm += t * t;
                 } catch (NumberFormatException formatExc) {
                     throw new UDFArgumentTypeException(0,
                             "Only numeric type arguments are accepted but "
@@ -84,12 +88,12 @@ public class ArrayAvg extends GenericUDF {
             }
         }
 
-        return new DoubleWritable(sum / n);
+        return new DoubleWritable(Math.sqrt((ssm - sum * sum / n) / (n - 1)));
     }
 
     @Override
     public String getDisplayString(String[] strings) {
         assert (strings.length == ARG_COUNT);
-        return "array_avg(" + strings[0] + ")";
+        return "array_std(" + strings[0] + ")";
     }
 }
