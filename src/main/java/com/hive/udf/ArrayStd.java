@@ -45,7 +45,17 @@ public class ArrayStd extends GenericUDF {
         arrayOI = (ListObjectInspector) arguments[0];
         arrayElementOI = arrayOI.getListElementObjectInspector();
 
-        return PrimitiveObjectInspectorFactory.writableDoubleObjectInspector;
+        String elementType = arrayElementOI.getTypeName().toUpperCase();
+        if (elementType.contains("TINYINT") || elementType.contains("SMALLINT") ||
+                elementType.contains("INT") || elementType.contains("BIGINT") ||
+                elementType.contains("FLOAT") || elementType.contains("DOUBLE") ||
+                elementType.contains("DECIMAL")) {
+            return PrimitiveObjectInspectorFactory.writableDoubleObjectInspector;
+        } else {
+            throw new UDFArgumentTypeException(0,
+                    "Only numeric type arguments are accepted but "
+                            + arrayElementOI.getTypeName() + " is passed.");
+        }
     }
 
     @Override

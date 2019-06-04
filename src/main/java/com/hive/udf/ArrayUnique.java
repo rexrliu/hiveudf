@@ -49,14 +49,6 @@ public class ArrayUnique extends GenericUDF {
         arrayOI = (ListObjectInspector) arguments[0];
         arrayElementOI = arrayOI.getListElementObjectInspector();
 
-        // Check if the comparison is supported for this type
-        if (!ObjectInspectorUtils.compareSupported(arrayElementOI)) {
-            throw new UDFArgumentException("The function array_unique"
-                    + " does not support comparison for "
-                    + "\"" + arrayElementOI.getTypeName() + "\""
-                    + " types");
-        }
-
         return ObjectInspectorFactory.getStandardListObjectInspector(arrayElementOI);
     }
 
