@@ -12,7 +12,7 @@ import org.apache.hadoop.hive.serde2.objectinspector.ObjectInspectorUtils;
 import org.apache.hadoop.hive.serde2.objectinspector.primitive.PrimitiveObjectInspectorFactory;
 
 @Description(name = "array_max"
-        , value = "_FUNC_(array) - returns the maximum value of input array."
+        , value = "_FUNC_(array) - returns the maximum value of an input array."
         , extended = "Example:\n > select _FUNC_(array) from src;")
 public class ArrayMax extends GenericUDF {
     private static final int ARG_COUNT = 1; // Number of arguments to this UDF

@@ -9,11 +9,10 @@ import org.apache.hadoop.hive.ql.udf.generic.GenericUDF;
 import org.apache.hadoop.hive.serde2.io.DoubleWritable;
 import org.apache.hadoop.hive.serde2.objectinspector.ListObjectInspector;
 import org.apache.hadoop.hive.serde2.objectinspector.ObjectInspector;
-import org.apache.hadoop.hive.serde2.objectinspector.ObjectInspectorUtils;
 import org.apache.hadoop.hive.serde2.objectinspector.primitive.PrimitiveObjectInspectorFactory;
 
 @Description(name = "array_avg"
-        , value = "_FUNC_(array) - returns the average of input array."
+        , value = "_FUNC_(array) - returns the average of an input array."
         , extended = "Example:\n > select _FUNC_(array) from src;")
 public class ArrayAvg extends GenericUDF {
     private static final int ARG_COUNT = 1; // Number of arguments to this UDF
@@ -25,7 +24,7 @@ public class ArrayAvg extends GenericUDF {
 
     @Override
     public ObjectInspector initialize(ObjectInspector[] arguments) throws UDFArgumentException {
-        if (arguments.length != ARG_COUNT) {  // Check if only one argument was passed
+        if (arguments.length != ARG_COUNT) {  // Check if the required number of arguments were passed
             throw new UDFArgumentLengthException(
                     "The function array_avg(array) takes exactly " + ARG_COUNT + " arguments.");
         }
@@ -44,14 +43,6 @@ public class ArrayAvg extends GenericUDF {
 
         arrayOI = (ListObjectInspector) arguments[0];
         arrayElementOI = arrayOI.getListElementObjectInspector();
-
-        // Check if the comparison is supported for this type
-        if (!ObjectInspectorUtils.compareSupported(arrayElementOI)) {
-            throw new UDFArgumentException("The function array_avg"
-                    + " does not support comparison for "
-                    + "\"" + arrayElementOI.getTypeName() + "\""
-                    + " types");
-        }
 
         return PrimitiveObjectInspectorFactory.writableDoubleObjectInspector;
     }

@@ -13,7 +13,7 @@ import org.apache.hadoop.hive.serde2.objectinspector.ObjectInspectorUtils;
 import org.apache.hadoop.hive.serde2.objectinspector.primitive.PrimitiveObjectInspectorFactory;
 
 @Description(name = "array_avg"
-        , value = "_FUNC_(array) - returns the std of input array."
+        , value = "_FUNC_(array) - returns the std of an input array."
         , extended = "Example:\n > select _FUNC_(array) from src;")
 public class ArrayStd extends GenericUDF {
     private static final int ARG_COUNT = 1; // Number of arguments to this UDF
@@ -25,7 +25,7 @@ public class ArrayStd extends GenericUDF {
 
     @Override
     public ObjectInspector initialize(ObjectInspector[] arguments) throws UDFArgumentException {
-        if (arguments.length != ARG_COUNT) {  // Check if only one argument was passed
+        if (arguments.length != ARG_COUNT) {  // Check if the required arguments were passed
             throw new UDFArgumentLengthException(
                     "The function array_std(array) takes exactly " + ARG_COUNT + " arguments.");
         }
@@ -44,14 +44,6 @@ public class ArrayStd extends GenericUDF {
 
         arrayOI = (ListObjectInspector) arguments[0];
         arrayElementOI = arrayOI.getListElementObjectInspector();
-
-        // Check if the comparison is supported for this type
-        if (!ObjectInspectorUtils.compareSupported(arrayElementOI)) {
-            throw new UDFArgumentException("The function array_std"
-                    + " does not support comparison for "
-                    + "\"" + arrayElementOI.getTypeName() + "\""
-                    + " types");
-        }
 
         return PrimitiveObjectInspectorFactory.writableDoubleObjectInspector;
     }

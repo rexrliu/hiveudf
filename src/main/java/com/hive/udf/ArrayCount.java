@@ -13,7 +13,7 @@ import org.apache.hadoop.hive.serde2.objectinspector.primitive.PrimitiveObjectIn
 import org.apache.hadoop.io.IntWritable;
 
 @Description(name = "array_count"
-        , value = "_FUNC_(array) - returns the non-null count of input array."
+        , value = "_FUNC_(array) - returns the non-null count of an input array."
         , extended = "Example:\n > select _FUNC_(array) from src;")
 public class ArrayCount extends GenericUDF {
     private static final int ARG_COUNT = 1; // Number of arguments to this UDF
@@ -44,14 +44,6 @@ public class ArrayCount extends GenericUDF {
 
         arrayOI = (ListObjectInspector) arguments[0];
         arrayElementOI = arrayOI.getListElementObjectInspector();
-
-        // Check if the comparison is supported for this type
-        if (!ObjectInspectorUtils.compareSupported(arrayElementOI)) {
-            throw new UDFArgumentException("The function array_max"
-                    + " does not support comparison for "
-                    + "\"" + arrayElementOI.getTypeName() + "\""
-                    + " types");
-        }
 
         return PrimitiveObjectInspectorFactory.writableIntObjectInspector;
     }
