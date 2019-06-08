@@ -9,6 +9,7 @@ import org.apache.hadoop.hive.ql.udf.generic.GenericUDF;
 import org.apache.hadoop.hive.serde2.objectinspector.ListObjectInspector;
 import org.apache.hadoop.hive.serde2.objectinspector.ObjectInspector;
 import org.apache.hadoop.hive.serde2.objectinspector.ObjectInspectorFactory;
+import org.apache.hadoop.hive.serde2.objectinspector.ObjectInspectorUtils;
 import org.apache.hadoop.hive.serde2.objectinspector.primitive.PrimitiveObjectInspectorFactory;
 
 import java.util.ArrayList;
@@ -20,6 +21,7 @@ public class ArrayShift extends GenericUDF {
     private static final int ARG_COUNT = 2; // Number of arguments to this UDF
     private transient ListObjectInspector arrayOI;
     private transient ObjectInspector arrayElementOI;
+    private transient ObjectInspector valueOI;
 
     public ArrayShift() {
     }
@@ -45,6 +47,14 @@ public class ArrayShift extends GenericUDF {
 
         arrayOI = (ListObjectInspector) arguments[0];
         arrayElementOI = arrayOI.getListElementObjectInspector();
+        valueOI = arguments[1];
+
+        // Check if list element and value are of same type
+        if (!ObjectInspectorUtils.compareTypes(arrayElementOI, valueOI)) {
+            throw new UDFArgumentTypeException(1, "\"" + arrayElementOI.getTypeName() + "\""
+                    + " expected at function array_index , but " + "\""
+                    + valueOI.getTypeName() + "\"" + " is found");
+        }
 
         return ObjectInspectorFactory.getStandardListObjectInspector(arrayElementOI);
     }
