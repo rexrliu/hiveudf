@@ -19,11 +19,9 @@ public class HexEncrypt extends GenericUDF {
     private static final int ARG_COUNT = 2;  // Number of arguments to this UDF
     private static final String HEX_CHARS = "0123456789abcdef";  //
 
-    PrimitiveObjectInspector inputOI;
     PrimitiveObjectInspector outputOI;
 
-    public HexEncrypt() {
-    }
+    public HexEncrypt() {}
 
     @Override
     public ObjectInspector initialize(ObjectInspector[] arguments) throws UDFArgumentException {
@@ -37,23 +35,21 @@ public class HexEncrypt extends GenericUDF {
         }
 
         if ("void".equals(arguments[1].getTypeName())) {  // check if input is null
-            throw new UDFArgumentTypeException(0, "Key cannot be null.");
+            throw new UDFArgumentTypeException(1, "Key cannot be null.");
             //return PrimitiveObjectInspectorFactory.javaVoidObjectInspector;
         }
 
-//        assert(arguments[0].getCategory() == ObjectInspector.Category.PRIMITIVE);
-        inputOI  = (PrimitiveObjectInspector) arguments[0];
-        if (inputOI.getPrimitiveCategory() != PrimitiveObjectInspector.PrimitiveCategory.STRING) {
+        if (((PrimitiveObjectInspector) arguments[0]).getPrimitiveCategory()
+                != PrimitiveObjectInspector.PrimitiveCategory.STRING) {
             throw new UDFArgumentTypeException(0, "\"" + serdeConstants.STRING_TYPE_NAME + "\" "
-                    + "expected by function hex_encrpyt as parameter 1, but "
+                    + "expected by function hex_encrpyt as input string, but "
                     + "\"" + arguments[0].getTypeName() + "\" is found");
         }
 
-//        assert(arguments[1].getCategory() == ObjectInspector.Category.PRIMITIVE);
-        inputOI  = (PrimitiveObjectInspector)arguments[1];
-        if (inputOI.getPrimitiveCategory() != PrimitiveObjectInspector.PrimitiveCategory.STRING) {
-            throw new UDFArgumentTypeException(0, "\"" + serdeConstants.STRING_TYPE_NAME + "\" "
-                    + "expected by function hex_encrpyt as parameter 2, but "
+        if (((PrimitiveObjectInspector) arguments[1]).getPrimitiveCategory()
+                != PrimitiveObjectInspector.PrimitiveCategory.STRING) {
+            throw new UDFArgumentTypeException(1, "\"" + serdeConstants.STRING_TYPE_NAME + "\" "
+                    + "expected by function hex_encrpyt as key, but "
                     + "\"" + arguments[1].getTypeName() + "\" is found");
         }
 
@@ -70,13 +66,9 @@ public class HexEncrypt extends GenericUDF {
         }
 
         Object o_key = arguments[1].get();
-/*
-        if (o_key == null) {  // Check if array is null
-            return null;
-        }
-*/
-        String val = ((String) inputOI.getPrimitiveJavaObject(o_val)).toLowerCase();
-        String key = ((String) inputOI.getPrimitiveJavaObject(o_key)).toLowerCase();
+
+        String val = o_val.toString().toLowerCase();
+        String key = o_key.toString().toLowerCase();
 
         int nk = key.length();
         int nv = val.length();
@@ -88,16 +80,16 @@ public class HexEncrypt extends GenericUDF {
         int k = 0;
         for (int i = 0; i < nv; i++) {
             char c = val.charAt(i);
-            if (HEX_CHARS.indexOf(c) < 0) {
+            int bv = HEX_CHARS.indexOf(c);
+            if (bv < 0) {
                 res[i] = c;
             } else {
                 char s = key.charAt(k % nk);
-                if (HEX_CHARS.indexOf(s) < 0) {
-                    throw new HiveException( String.valueOf(s) + " is not a valid hex char.");
+                int bk = HEX_CHARS.indexOf(s);
+                if (bk < 0) {
+                    throw new HiveException(String.valueOf(s) + " is not a valid hex char.");
                 }
 
-                byte bv = Byte.parseByte(String.valueOf(val.charAt(i)), 16);
-                byte bk = Byte.parseByte(String.valueOf(s), 16);
                 res[i] =  Integer.toHexString(bv ^ bk).charAt(0);
 
                 k++;
