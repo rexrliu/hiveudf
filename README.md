@@ -20,7 +20,7 @@ hdfs dfs -put hiveudf-1.0-SNAPSHOT.jar hdfs://hive-udf-path/
 
 3. Create function from the uploaded jar for Hive
 ```
-create function udf.array_max as 'com.hive.udf.ArrayMax' using jar 'hdfs:///user/hdpu/hive_udf/java/hiveudf-1.0-SNAPSHOT.jar';
+create function udf.array_max as 'com.hive.udf.ArrayMax' using jar 'hdfs://hive-udf-path/hiveudf-1.0-SNAPSHOT.jar';
 ```
 
 You will need to specify a database as perfix for the udfs (you can just use default database)
