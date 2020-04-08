@@ -79,15 +79,15 @@ public class GeoCircle extends UDF {
         StringBuilder stringBuilder = new StringBuilder();
         stringBuilder.append("POLYGON ((");
         for (int i = 0; i < n; i++) {
-            stringBuilder.append(v[i][0]);
-            stringBuilder.append(" ");
             stringBuilder.append(v[i][1]);
+            stringBuilder.append(" ");
+            stringBuilder.append(v[i][0]);
             stringBuilder.append(", ");
         }
         // end with start point
-        stringBuilder.append(v[0][0]);
-        stringBuilder.append(" ");
         stringBuilder.append(v[0][1]);
+        stringBuilder.append(" ");
+        stringBuilder.append(v[0][0]);
         stringBuilder.append("))");
 
         return stringBuilder.toString();

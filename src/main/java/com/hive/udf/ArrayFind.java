@@ -15,10 +15,10 @@ import org.apache.hadoop.hive.serde2.objectinspector.primitive.PrimitiveObjectIn
 import org.apache.hadoop.io.IntWritable;
 
 @Description(name = "array_index"
-        , value = "_FUNC_(array) - returns the index of the input in the array."
-        , extended = "Example:\n > select _FUNC_(array) from src;")
+        , value = "_FUNC_(array, val) - returns the index of the input in the array."
+        , extended = "Example:\n > select _FUNC_(array, val) from src;")
 
-public class ArrayIndex extends GenericUDF {
+public class ArrayFind extends GenericUDF {
     private static final int ARG_COUNT = 2; // Number of arguments to this UDF
 
     private ObjectInspector valueOI;
@@ -26,7 +26,7 @@ public class ArrayIndex extends GenericUDF {
     private ObjectInspector arrayElementOI;
     private IntWritable result;
 
-    public ArrayIndex() {
+    public ArrayFind() {
     }
 
     @Override
