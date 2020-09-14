@@ -40,7 +40,9 @@ SELECT udf.array_max(array(1, 2, 3));
 | Int | array_count_distinct(array) | Return the number of unique element in an array |
 | Int | array_find(array, val) | Return the index of the first match of the array to the value, -1 will be returned if no match is found |
 | T | array_max(array<T>) | Get the maximum element in the array |
-| T | array_min(array<T>) | Get the minmum element in the array |
+| T | array_min(array<T>) | Get the minimum element in the array |
+| map<K, Double> | scale_map(map<K, V>, scalar) | Scale each value in the map |
+| map<K, Double> | combine_maps(map<K, V>) | Combine maps where values of the same key are added together |
 | array\<T\> | array_null_outlier(array\<T\>, lower, upper) | Set those beyond [lower, upper] as null |
 | array\<T\> | array_set(array\<T\>, index, val) | Set array[index] = val, exception will throw if the index is beyond the array boundary |
 | array\<T\> | array_shift(array\<T\>, val) | Add the given value to the input array and shift out the last element (like queue) |
